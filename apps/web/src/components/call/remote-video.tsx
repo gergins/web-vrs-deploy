@@ -112,7 +112,7 @@ export function RemoteVideo({ stream, overlayMessage, onStateChange }: RemoteVid
         placeItems: "center"
       }}
     >
-      {overlayMessage ?? "Remote peer unavailable"}
+      Remote peer unavailable
     </div>
   );
 }

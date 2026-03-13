@@ -116,8 +116,8 @@ pnpm demo:api:built
 
 The API listens on:
 
-- `http://localhost:4000`
-- websocket signaling: `ws://localhost:4000/ws`
+- `http://localhost:3001`
+- websocket signaling: `ws://localhost:3001/ws`
 
 ## 6. Start the web app
 
@@ -313,6 +313,8 @@ tasklist /FI "PID eq 12345"
 - signer queue: `http://localhost:3000/queue`
 - interpreter console: `http://localhost:3000/interpreter`
 - role selector: `http://localhost:3000/`
+- API base: `http://localhost:3001`
+- websocket signaling: `ws://localhost:3001/ws`
 
 ## Shutdown
 

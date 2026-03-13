@@ -80,6 +80,37 @@ export class SignalingClient {
     }
   }
 
+  async sendAndWait(message: unknown, timeoutMs = 200) {
+    if (this.ws?.readyState !== WebSocket.OPEN) {
+      return false;
+    }
+
+    this.ws.send(JSON.stringify(message));
+    return new Promise<boolean>((resolve) => {
+      const startedAt = window.performance.now();
+      const checkBufferedAmount = () => {
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+          resolve(false);
+          return;
+        }
+
+        if (this.ws.bufferedAmount === 0) {
+          resolve(true);
+          return;
+        }
+
+        if (window.performance.now() - startedAt >= timeoutMs) {
+          resolve(false);
+          return;
+        }
+
+        window.setTimeout(checkBufferedAmount, 16);
+      };
+
+      checkBufferedAmount();
+    });
+  }
+
   onMessage(handler: (message: unknown) => void) {
     this.messageHandlers.add(handler);
   }

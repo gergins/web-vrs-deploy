@@ -24,14 +24,13 @@ services:
     ports:
       - "3478:3478/tcp"
       - "3478:3478/udp"
-      - "5349:5349/tcp"
 
   api:
     build:
       context: .
       dockerfile: infra/docker/api.Dockerfile
     ports:
-      - "4000:4000"
+      - "3001:3001"
     env_file:
       - .env.example
     depends_on:

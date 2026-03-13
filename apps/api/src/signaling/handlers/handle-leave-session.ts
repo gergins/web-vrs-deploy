@@ -1,6 +1,6 @@
 import type { InboundSignalMessage } from "../dto/inbound-signal-message";
+import { createOutboundSignalMessage } from "../dto/outbound-signal-message";
 import type { SignalRouteContext, SignalRouteResult } from "../signaling-context";
-import { createDirectMessage } from "./create-direct-message";
 import { logger } from "../../config/logger";
 
 export async function handleLeaveSession(
@@ -11,25 +11,36 @@ export async function handleLeaveSession(
     throw new Error("client.leave-session requires sessionId");
   }
 
+  const liveConnection = context.connectionRegistry.get(context.connectionId);
+  if (!liveConnection) {
+    throw new Error("Connection must authenticate before leaving a session");
+  }
+
   context.sessionRegistry.leave(message.sessionId, context.connectionId);
   context.connectionRegistry.removeSession(context.connectionId, message.sessionId);
   logger.info("[signal] leave.accepted", {
     connectionId: context.connectionId,
-    sessionId: message.sessionId
+    sessionId: message.sessionId,
+    userId: liveConnection.userId
   });
 
-  const liveConnection = context.connectionRegistry.get(context.connectionId);
   await context.heartbeat.touch(
     context.connectionId,
-    liveConnection?.userId,
-    liveConnection ? [...liveConnection.sessionIds] : []
+    liveConnection.userId,
+    [...liveConnection.sessionIds]
   );
 
   return {
     peerMessages: [
-      createDirectMessage(message, "session.ended", {
-        connectionId: context.connectionId,
-        reason: "peer_left"
+      createOutboundSignalMessage({
+        correlationId: message.correlationId,
+        type: "session.ended",
+        actorId: liveConnection.userId,
+        sessionId: message.sessionId,
+        payload: {
+          connectionId: context.connectionId,
+          reason: "peer_left"
+        }
       })
     ]
   };

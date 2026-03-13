@@ -7,6 +7,7 @@ import { registerCallRoutes } from "./routes/call-routes";
 import { registerInterpreterRoutes } from "./routes/interpreter-routes";
 import { registerQueueRoutes } from "./routes/queue-routes";
 import { registerSessionRoutes } from "./routes/session-routes";
+import { registerTurnRoutes } from "./routes/turn-routes";
 
 export function createApp() {
   const app = express();
@@ -20,6 +21,7 @@ export function createApp() {
   registerQueueRoutes(app);
   registerSessionRoutes(app);
   registerInterpreterRoutes(app);
+  registerTurnRoutes(app);
 
   return app;
 }

@@ -17,6 +17,21 @@ type LocalAuthInput = {
   userId: string;
 };
 
+export type TurnIceServer = {
+  urls: string | string[];
+  username?: string;
+  credential?: string;
+};
+
+export type TurnCredentialsResponse = {
+  ok: true;
+  turn: {
+    iceServers: TurnIceServer[];
+    ttlSeconds: number;
+    expiresAt: string;
+  };
+};
+
 export async function authenticateLocalUser(input: LocalAuthInput) {
   const { apiBaseUrl } = getPublicEnv();
   const response = await fetch(`${apiBaseUrl}/auth/local`, {
@@ -66,6 +81,17 @@ export async function getQueueStatus(callRequestId: string) {
 export async function getSession(sessionId: string) {
   const { apiBaseUrl } = getPublicEnv();
   const response = await fetch(`${apiBaseUrl}/sessions/${sessionId}`);
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+
+  return response.json();
+}
+
+export async function getTurnCredentials(): Promise<TurnCredentialsResponse> {
+  const { apiBaseUrl } = getPublicEnv();
+  const response = await fetch(`${apiBaseUrl}/turn/credentials`);
 
   if (!response.ok) {
     throw new Error(await readErrorMessage(response));

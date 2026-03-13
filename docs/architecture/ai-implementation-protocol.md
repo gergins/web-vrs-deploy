@@ -226,6 +226,8 @@ architecture structure
 
 the agent must update documentation accordingly.
 
+After each successfully implemented and validated component, update `/docs/architecture/current-system-status.md` before closing the task.
+
 ------------------------------------------------
 
 # Rule 14 — Incremental Development

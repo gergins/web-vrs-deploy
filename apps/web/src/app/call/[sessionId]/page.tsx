@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ConnectionStatus } from "../../../components/call/connection-status";
 import { LocalVideo } from "../../../components/call/local-video";
@@ -8,12 +8,12 @@ import { MediaControls } from "../../../components/call/media-controls";
 import { RemoteVideo } from "../../../components/call/remote-video";
 import { SignalingClient } from "../../../signaling/signaling-client";
 import { createClientEnvelope, signalingEvents } from "../../../signaling/signaling-events";
+import { authenticateLocalUser, getTurnCredentials } from "../../../api/client";
 import {
   getSeededIdentityForRole,
   getStoredAuthIdentity,
   setStoredAuthIdentity
 } from "../../../state/auth-store";
-import { authenticateLocalUser } from "../../../api/client";
 import { getPublicEnv } from "../../../utils/env";
 import { buildIceServers } from "../../../webrtc/ice-manager";
 import { MediaManager } from "../../../webrtc/media-manager";
@@ -26,9 +26,10 @@ type CallSignalMessage = {
   payload: Record<string, unknown>;
 };
 
+const TERMINAL_MESSAGE_DISMISS_MS = 4000;
+
 export default function CallPage() {
   const params = useParams<{ sessionId: string }>();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = params.sessionId;
   const rawSearchParams = searchParams.toString();
@@ -44,7 +45,9 @@ export default function CallPage() {
   const clientRef = useRef<SignalingClient | null>(null);
   const mediaManagerRef = useRef<MediaManager | null>(null);
   const peerSessionRef = useRef<PeerSession | null>(null);
-  const cleanupRef = useRef<(reason: string, options?: { navigate?: boolean }) => void>(() => {});
+  const cleanupRef = useRef<(reason: string, options?: { navigate?: boolean }) => Promise<void>>(
+    async () => {}
+  );
   const recoveryTimeoutRef = useRef<number | null>(null);
   const disconnectGraceTimeoutRef = useRef<number | null>(null);
   const mediaWatchdogIntervalRef = useRef<number | null>(null);
@@ -130,14 +133,52 @@ export default function CallPage() {
   const [browserUrl, setBrowserUrl] = useState("");
   const [authStatus, setAuthStatus] = useState("Unauthenticated");
   const [remoteDepartureUxState, setRemoteDepartureUxState] = useState<
-    "none" | "reconnecting" | "departed"
+    "none" | "reconnecting" | "departed" | "local_ended"
   >("none");
-  const remoteVideoOverlayMessage =
+  const [terminalOverlayVisible, setTerminalOverlayVisible] = useState(false);
+  const [terminalPageMessageVisible, setTerminalPageMessageVisible] = useState(false);
+  const isInterpreterView = parsedRole === "interpreter";
+  const localPaneTitle = isInterpreterView ? "Interpreter video" : "Your video";
+  const remotePaneTitle = isInterpreterView ? "Remote video" : "Interpreter video";
+  const localPaneDescription = isInterpreterView
+    ? "This is the interpreter camera preview."
+    : "This is your local camera preview.";
+  const remotePaneDescription = isInterpreterView
+    ? "This area shows the remote participant video and remote-call status overlays."
+    : "This area shows the interpreter video and remote-call status overlays.";
+  const rawLocalVideoOverlayMessage =
+    remoteDepartureUxState === "local_ended" ? "You left the call" : null;
+  const rawRemoteVideoOverlayMessage =
     remoteDepartureUxState === "reconnecting"
       ? "Reconnecting…"
       : remoteDepartureUxState === "departed"
-        ? "Remote participant left the call"
+        ? isInterpreterView
+          ? "Remote participant left the call"
+          : "Interpreter left the call"
         : null;
+
+  const shouldAutoDismissTerminalOverlay =
+    remoteDepartureUxState === "local_ended" || remoteDepartureUxState === "departed";
+  const shouldAutoDismissTerminalPageMessage = shouldAutoDismissTerminalOverlay;
+  const showTerminalPageMessage =
+    !shouldAutoDismissTerminalPageMessage || terminalPageMessageVisible;
+  const localVideoOverlayMessage =
+    shouldAutoDismissTerminalOverlay && !terminalOverlayVisible ? null : rawLocalVideoOverlayMessage;
+  const remoteVideoOverlayMessage =
+    shouldAutoDismissTerminalOverlay && !terminalOverlayVisible ? null : rawRemoteVideoOverlayMessage;
+  const pageLevelStatus =
+    showTerminalPageMessage
+      ? status
+      : remoteDepartureUxState === "local_ended"
+        ? "Ended"
+        : remoteDepartureUxState === "departed"
+          ? "Participant left"
+          : status;
+  const pageLevelErrorText = showTerminalPageMessage ? errorText : null;
+  const showNextActions =
+    remoteDepartureUxState === "reconnecting" ||
+    ((remoteDepartureUxState === "local_ended" || remoteDepartureUxState === "departed") &&
+      showTerminalPageMessage);
 
   useEffect(() => {
     const stored = getStoredAuthIdentity();
@@ -146,6 +187,38 @@ export default function CallPage() {
       setAuthStatus("Authenticated");
     }
   }, [parsedRole]);
+
+  useEffect(() => {
+    if (!shouldAutoDismissTerminalOverlay) {
+      setTerminalOverlayVisible(false);
+      return;
+    }
+
+    setTerminalOverlayVisible(true);
+    const timer = window.setTimeout(() => {
+      setTerminalOverlayVisible(false);
+    }, TERMINAL_MESSAGE_DISMISS_MS);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [shouldAutoDismissTerminalOverlay, remoteDepartureUxState]);
+
+  useEffect(() => {
+    if (!shouldAutoDismissTerminalPageMessage) {
+      setTerminalPageMessageVisible(false);
+      return;
+    }
+
+    setTerminalPageMessageVisible(true);
+    const timer = window.setTimeout(() => {
+      setTerminalPageMessageVisible(false);
+    }, TERMINAL_MESSAGE_DISMISS_MS);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [shouldAutoDismissTerminalPageMessage, remoteDepartureUxState]);
 
   useEffect(() => {
     setBrowserUrl(window.location.href);
@@ -221,6 +294,31 @@ export default function CallPage() {
           payload
         })
     );
+  }
+
+  function getFallbackIceServers() {
+    return buildIceServers({
+      stunUrl: env.stunUrl,
+      turnUrl: env.turnUrl,
+      turnUsername: env.turnUsername,
+      turnPassword: env.turnPassword
+    });
+  }
+
+  async function loadProductionIceServers() {
+    try {
+      const response = await getTurnCredentials();
+      console.log("[call] backend ICE configuration loaded", {
+        iceServerCount: response.turn.iceServers.length,
+        expiresAt: response.turn.expiresAt
+      });
+      return response.turn.iceServers as RTCIceServer[];
+    } catch (error) {
+      console.warn("[call] backend ICE configuration failed, using fallback", {
+        error: error instanceof Error ? error.message : "unknown"
+      });
+      return getFallbackIceServers();
+    }
   }
 
   function clearRecoveryTimeout() {
@@ -811,33 +909,24 @@ export default function CallPage() {
     );
   }
 
-  function cleanupCall(reason: string, options?: { navigate?: boolean }) {
-    if (didEndRef.current) {
-      console.log("[call] cleanup skipped (already ended)", { reason });
-      return;
+  async function closeTerminalSession(options?: { sendLeaveSession?: boolean }) {
+    const client = clientRef.current;
+    if (options?.sendLeaveSession && client && sessionId) {
+      await client.sendAndWait(
+        createClientEnvelope({
+          type: signalingEvents.clientLeaveSession,
+          actorId: derivedActorId,
+          sessionId,
+          payload: {}
+        })
+      );
     }
 
-    didEndRef.current = true;
-    clearRecoveryTimeout();
-    clearDisconnectGraceTimeout();
-    console.log("[call] hangup initiated", { reason });
-    setLastMajorEvent(reason);
-    setStatus("Call ended");
-    setCallPhase(
-      reason === "peer_failed"
-        ? "failed"
-        : reason === "signaling_closed"
-          ? "disconnected"
-          : "ended"
-    );
-
-    if (sessionId) {
-      sendSignalMessage(signalingEvents.clientLeaveSession, {});
+    if (client) {
+      skipNextSocketCloseCleanupRef.current = true;
+      client.close();
+      console.log("[call] signaling connection closed");
     }
-
-    skipNextSocketCloseCleanupRef.current = true;
-    clientRef.current?.close();
-    console.log("[call] signaling connection closed");
     clientRef.current = null;
     peerSessionRef.current?.close();
     peerSessionRef.current = null;
@@ -856,10 +945,32 @@ export default function CallPage() {
     setRecoveryAttempted(false);
     setRecoveryFailed(false);
     refreshLocalMediaState();
+  }
 
-    if (options?.navigate) {
-      router.push("/");
+  async function cleanupCall(reason: string, options?: { navigate?: boolean }) {
+    if (didEndRef.current) {
+      console.log("[call] cleanup skipped (already ended)", { reason });
+      return;
     }
+
+    didEndRef.current = true;
+    clearRecoveryTimeout();
+    clearDisconnectGraceTimeout();
+    console.log("[call] hangup initiated", { reason });
+    setLastMajorEvent(reason);
+    setStatus("Call ended");
+    setErrorText(reason === "hangup" ? "You left the call." : null);
+    setRemoteDepartureUxState(reason === "hangup" ? "local_ended" : "none");
+    setCallPhase(
+      reason === "peer_failed"
+        ? "failed"
+        : reason === "signaling_closed"
+          ? "disconnected"
+          : "ended"
+    );
+    await closeTerminalSession({
+      sendLeaveSession: reason === "hangup"
+    });
   }
 
   function handleToggleAudio() {
@@ -881,9 +992,14 @@ export default function CallPage() {
       return;
     }
 
+    didEndRef.current = true;
     clearRecoveryTimeout();
     console.log("[call] remote leave detected", { reason });
     finalizeRemoteDeparture(reason, actorId);
+    setCallPhase("ended");
+    setStatus("Remote participant left the call");
+    setErrorText("The session has ended. Start a new call to continue.");
+    void closeTerminalSession();
   }
 
   useEffect(() => {
@@ -930,14 +1046,15 @@ export default function CallPage() {
       setLocalStream(stream);
       refreshLocalMediaState();
 
+      const iceServers = await loadProductionIceServers();
+      if (cancelled) {
+        mediaManager.stopLocalStream();
+        return;
+      }
+
       const peerSession = new PeerSession(
         {
-          iceServers: buildIceServers({
-            stunUrl: env.stunUrl,
-            turnUrl: env.turnUrl,
-            turnUsername: env.turnUsername,
-            turnPassword: env.turnPassword
-          }),
+          iceServers,
           polite: parsedRole === "interpreter"
         }
       );
@@ -1123,7 +1240,7 @@ export default function CallPage() {
 
     return () => {
       cancelled = true;
-      cleanupRef.current("unmount");
+      void cleanupRef.current("unmount");
     };
   }, [
     env.stunUrl,
@@ -1131,7 +1248,6 @@ export default function CallPage() {
     env.turnUrl,
     env.turnUsername,
     parsedRole,
-    router,
     sessionId,
     wsUrl,
     authenticatedIdentity
@@ -1200,7 +1316,7 @@ export default function CallPage() {
 
   useEffect(() => {
     function handleBeforeUnload() {
-      cleanupRef.current("beforeunload");
+      void cleanupRef.current("beforeunload");
     }
 
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -1259,10 +1375,10 @@ export default function CallPage() {
             }}
           >
             <div style={{ fontSize: 18 }}>
-              <strong>Status:</strong> <span data-testid="call-status">{status}</span>
+              <strong>Status:</strong> <span data-testid="call-status">{pageLevelStatus}</span>
             </div>
             <p style={{ marginBottom: 0 }}>
-              This area shows whether the interpreter is connected, reconnecting, or has left the call.
+              This area summarizes the current call state, including active connection and recovery progress.
             </p>
           </section>
 
@@ -1290,7 +1406,7 @@ export default function CallPage() {
                 {connectedPeers.length === 0 ? "none yet" : connectedPeers.join(", ")}
               </span>
             </div>
-            {remoteDepartureUxState !== "none" ? (
+            {showNextActions ? (
               <div
                 style={{
                   display: "grid",
@@ -1304,6 +1420,11 @@ export default function CallPage() {
                 <div><strong>Next actions:</strong></div>
                 {remoteDepartureUxState === "reconnecting" ? (
                   <div>- Wait briefly while reconnect is attempted.</div>
+                ) : remoteDepartureUxState === "local_ended" ? (
+                  <>
+                    <div>- Return to the queue to start a new call.</div>
+                    <div>- Rejoin only if you intentionally want to reconnect to this session.</div>
+                  </>
                 ) : (
                   <>
                     <div>- Wait for rejoin if the remote participant reconnects.</div>
@@ -1356,7 +1477,7 @@ export default function CallPage() {
         lastFramesDecoded={lastFramesDecoded}
         staleMediaTimerActive={staleMediaTimerActive}
         staleMediaCleanupTriggered={staleMediaCleanupTriggered}
-        error={errorText}
+        error={pageLevelErrorText}
       />
 
       <div
@@ -1379,10 +1500,10 @@ export default function CallPage() {
           }}
         >
           <div>
-            <h2 style={{ margin: "0 0 8px" }}>Your Video</h2>
-            <p style={{ margin: 0 }}>This is your local camera preview.</p>
+            <h2 style={{ margin: "0 0 8px" }}>{localPaneTitle}</h2>
+            <p style={{ margin: 0 }}>{localPaneDescription}</p>
           </div>
-          <LocalVideo stream={localStream} />
+          <LocalVideo stream={localStream} overlayMessage={localVideoOverlayMessage} />
         </section>
 
         <section
@@ -1396,8 +1517,8 @@ export default function CallPage() {
           }}
         >
           <div>
-            <h2 style={{ margin: "0 0 8px" }}>Interpreter Video</h2>
-            <p style={{ margin: 0 }}>This area shows the interpreter video and remote-call status overlays.</p>
+            <h2 style={{ margin: "0 0 8px" }}>{remotePaneTitle}</h2>
+            <p style={{ margin: 0 }}>{remotePaneDescription}</p>
           </div>
           <RemoteVideo
             stream={remoteStream}
@@ -1432,7 +1553,9 @@ export default function CallPage() {
             disabled={!localMediaState.hasStream}
             onToggleAudio={handleToggleAudio}
             onToggleVideo={handleToggleVideo}
-            onHangUp={() => cleanupCall("hangup", { navigate: true })}
+            onHangUp={() => {
+              void cleanupCall("hangup");
+            }}
           />
         </section>
 
