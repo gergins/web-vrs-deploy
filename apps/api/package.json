@@ -1,0 +1,37 @@
+{
+  "name": "api",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "node --env-file=../../.env.example --import tsx --watch src/server.ts",
+    "dev:direct": "node --import tsx ./scripts/start-local.mjs",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "start:local:built": "node --env-file=../../.env.example ./scripts/start-built-local.mjs",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "prisma:generate": "prisma generate --schema ./src/db/prisma/schema.prisma",
+    "prisma:push": "prisma db push --schema ./src/db/prisma/schema.prisma",
+    "prisma:migrate": "prisma migrate dev --schema ./src/db/prisma/schema.prisma",
+    "prisma:seed": "pnpm build && pnpm prisma:seed:built",
+    "prisma:push:local": "node ./scripts/run-local-prisma.mjs db push --schema ./src/db/prisma/schema.prisma",
+    "prisma:migrate:local": "node ./scripts/run-local-prisma.mjs migrate dev --schema ./src/db/prisma/schema.prisma",
+    "prisma:seed:built": "node --env-file=../../.env.example ./scripts/seed-local.mjs",
+    "seed:local:built": "node --env-file=../../.env.example ./scripts/seed-local.mjs"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.0.0",
+    "cors": "^2.8.5",
+    "express": "^5.0.0",
+    "redis": "^5.8.2",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.3.0",
+    "prisma": "^6.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

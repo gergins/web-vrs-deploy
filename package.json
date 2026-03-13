@@ -1,0 +1,39 @@
+{
+  "name": "web-vrs",
+  "private": true,
+  "packageManager": "pnpm@10.0.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "esbuild",
+      "prisma",
+      "sharp"
+    ]
+  },
+  "scripts": {
+    "dev:web": "pnpm --dir apps/web dev",
+    "dev:api": "pnpm --dir apps/api dev",
+    "demo:infra": "docker compose up -d postgres redis coturn",
+    "demo:api": "pnpm --dir apps/api dev",
+    "demo:web": "pnpm --dir apps/web dev",
+    "demo:api:direct": "pnpm --dir apps/api dev:direct",
+    "demo:web:direct": "pnpm --dir apps/web dev:direct",
+    "demo:api:built": "pnpm --dir apps/api start:local:built",
+    "demo:web:built": "pnpm --dir apps/web start:built",
+    "demo": "pnpm demo:infra",
+    "build": "pnpm -r build",
+    "build:api": "pnpm --dir apps/api build",
+    "build:web": "pnpm --dir apps/web build",
+    "test:e2e:happy-path": "node tests/e2e/authenticated-happy-path.mjs",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "db:generate": "pnpm --dir apps/api prisma:generate",
+    "db:push": "pnpm --dir apps/api prisma:push:local",
+    "db:migrate": "pnpm --dir apps/api prisma:migrate:local",
+    "db:seed": "pnpm --dir apps/api prisma:seed",
+    "up": "docker compose up --build",
+    "down": "docker compose down"
+  }
+}

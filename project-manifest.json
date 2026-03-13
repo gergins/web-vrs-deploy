@@ -1,0 +1,43 @@
+{
+  "project": "web-vrs",
+  "purpose": "Two-party web VRS prototype evolving toward full relay platform",
+  "current_scope": [
+    "queue -> interpreter accept -> session -> WebRTC call",
+    "browser-to-browser signaling and media",
+    "local Docker infra"
+  ],
+  "out_of_scope_for_now": [
+    "PSTN bridge",
+    "SIP addressing",
+    "RTT",
+    "device selection",
+    "group calls"
+  ],
+  "authoritative_docs": [
+    "docs/contracts/websocket-events.md",
+    "docs/contracts/signaling-message-schema.md",
+    "docs/contracts/session-state-machine.md",
+    "docs/flows/call-flow.md",
+    "docs/flows/signaling-flow.md",
+    "docs/flows/media-flow.md"
+  ],
+  "critical_paths": {
+    "frontend_call_page": "apps/web/src/app/call/[sessionId]/page.tsx",
+    "frontend_signaling": "apps/web/src/signaling/signaling-client.ts",
+    "frontend_webrtc": "apps/web/src/webrtc/peer-session.ts",
+    "backend_signaling": "apps/api/src/signaling",
+    "backend_calls": "apps/api/src/routes/call-routes.ts"
+  },
+  "do_not_change_without_explicit_reason": [
+    "canonical websocket event names",
+    "role identity mapping",
+    "session lifecycle semantics"
+  ],
+  "truth_promotion_candidates": [
+    "docs/flows/call-flow.md",
+    "docs/flows/signaling-flow.md",
+    "docs/flows/media-flow.md",
+    "docs/flows/disconnect-flow.md",
+    "docs/contracts/session-state-machine.md"
+  ]
+}

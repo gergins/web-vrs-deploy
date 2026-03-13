@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id
+  email     String   @unique
+  role      String
+  createdAt DateTime @default(now())
+}
+
+model Interpreter {
+  id        String   @id
+  userId    String   @unique
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model CallRequest {
+  id          String   @id
+  requesterId String
+  state       String
+  assignedInterpreterId String?
+  createdAt   DateTime @default(now())
+}
+
+model SessionRecord {
+  id            String   @id
+  callRequestId String
+  requesterId   String
+  interpreterId String
+  state         String
+  createdAt     DateTime @default(now())
+  endedAt       DateTime?
+}
+
+model AssignmentAttempt {
+  id            String   @id
+  callRequestId String
+  interpreterId String
+  outcome       String
+  createdAt     DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id
+  eventType String
+  actorId   String?
+  sessionId String?
+  createdAt DateTime @default(now())
+}
