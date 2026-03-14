@@ -26,6 +26,8 @@
     "build:api": "pnpm --dir apps/api build",
     "build:web": "pnpm --dir apps/web build",
     "test:e2e:happy-path": "node tests/e2e/authenticated-happy-path.mjs",
+    "test:e2e:simultaneous-offer": "node tests/e2e/simultaneous-offer-fanout.mjs",
+    "test:e2e:hangup-reoffer": "node tests/e2e/hangup-reoffer-eligibility.mjs",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",

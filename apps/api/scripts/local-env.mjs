@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 function parseEnvFile(filepath) {
   const raw = readFileSync(filepath, "utf8");
@@ -21,6 +21,22 @@ function parseEnvFile(filepath) {
   }
 
   return parsed;
+}
+
+function resolveEnvFile(preferredEnvFile, fallbackEnvFile) {
+  if (preferredEnvFile && existsSync(preferredEnvFile)) {
+    return preferredEnvFile;
+  }
+
+  if (fallbackEnvFile && existsSync(fallbackEnvFile)) {
+    return fallbackEnvFile;
+  }
+
+  throw new Error(
+    `No local env file found. Expected ${preferredEnvFile}${
+      fallbackEnvFile ? ` or ${fallbackEnvFile}` : ""
+    }`
+  );
 }
 
 function applyDefaults(envDefaults) {
@@ -64,8 +80,9 @@ function buildLocalRedisUrl(template, redisHostPort) {
   }
 }
 
-export function loadLocalApiEnv(envFile) {
-  const envDefaults = parseEnvFile(envFile);
+export function loadLocalApiEnv(preferredEnvFile, fallbackEnvFile) {
+  const resolvedEnvFile = resolveEnvFile(preferredEnvFile, fallbackEnvFile);
+  const envDefaults = parseEnvFile(resolvedEnvFile);
   applyDefaults(envDefaults);
 
   const postgresHostPort =
@@ -99,6 +116,7 @@ export function loadLocalApiEnv(envFile) {
   }
 
   return {
+    envFile: resolvedEnvFile,
     postgresHostPort,
     redisHostPort,
     databaseUrl: process.env.DATABASE_URL ?? null,

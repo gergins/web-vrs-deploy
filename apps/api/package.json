@@ -7,7 +7,7 @@
     "dev:direct": "node --import tsx ./scripts/start-local.mjs",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
-    "start:local:built": "node --env-file=../../.env.example ./scripts/start-built-local.mjs",
+    "start:local:built": "node ./scripts/start-built-local.mjs",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate --schema ./src/db/prisma/schema.prisma",

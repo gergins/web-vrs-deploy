@@ -2,5 +2,6 @@
   "name": "@repo/ui",
   "private": true,
   "version": "0.1.0",
-  "type": "module"
+  "type": "module",
+  "description": "Deferred placeholder package reserved for future shared UI components."
 }

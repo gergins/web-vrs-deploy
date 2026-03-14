@@ -88,6 +88,7 @@ The seed creates:
 
 - signer user id: `user-signer-1`
 - interpreter user id: `user-interpreter-1`
+- interpreter user id: `user-interpreter-2`
 
 Prisma schema location in this repo:
 
@@ -151,6 +152,10 @@ Open:
 - Browser A: `http://localhost:3000/queue`
 - Browser B: `http://localhost:3000/interpreter`
 
+Optional for reassignment or simultaneous-offer testing:
+
+- Browser C: `http://localhost:3000/interpreter`
+
 ## Local test mode
 
 Browser A
@@ -164,6 +169,12 @@ Browser B
 - role: interpreter
 - page: `/interpreter`
 - default actor id: `user-interpreter-1`
+
+Optional Browser C
+
+- role: interpreter
+- page: `/interpreter`
+- alternate actor id: `user-interpreter-2`
 
 Expected flow:
 
@@ -281,7 +292,8 @@ Env assumptions for these commands:
 
 - root helpers load the API package context automatically
 - local Prisma commands prefer `LOCAL_DATABASE_URL` over the compose-network `DATABASE_URL`
-- the env file path assumed by repo scripts is the root `.env.example`
+- normal local API start paths prefer the root `.env`
+- if `.env` is missing, the API start scripts fall back to the root `.env.example`
 - Prisma commands use the explicit schema path `./src/db/prisma/schema.prisma` from `apps/api`
 
 ## Free-port troubleshooting

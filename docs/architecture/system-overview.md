@@ -11,37 +11,40 @@ This repository currently implements a single-deployable-first Video Relay Servi
 
 ## Current implemented shape
 
-The backend control plane is partially implemented today:
+The backend control plane is implemented as a locally runnable authenticated prototype:
 
 - REST routes are mounted for `health`, `auth`, `calls`, `queue`, `sessions`, and `interpreters`
+- TURN credential REST route is mounted at `/turn/credentials`
 - WebSocket signaling is attached at `/ws`
 - inbound signaling messages use the documented envelope shape
 - canonical signaling events are validated and routed
 - a bounded call-control flow exists:
   - call request created
   - call enters `queued`
-  - first available interpreter is offered the call
+  - one or more available interpreters are offered the call according to the configured routing mode
   - interpreter may accept or decline
   - session record is created on accept
 
-The frontend is still minimal:
+The frontend implements the current prototype surfaces:
 
-- home page exists
-- queue page can be used as a thin client for the current call request flow
-- call page can connect to the signaling gateway and show session join status
-- full media UI, stores, and queue/admin workflows are not implemented yet
+- home page supports local seeded login
+- queue page supports signer authentication, call creation, and queue/session progress
+- interpreter page supports interpreter authentication, active-session recovery, active-offer recovery, and offer response
+- call page supports authenticated session join/rejoin, call controls, diagnostics, and browser WebRTC media setup
+- TURN verification page exists for local ICE/TURN validation
+- admin page is still scaffold-only
 
 ## Control plane boundaries
 
 - REST handles call creation and simple queue/session lookups
-- WebSocket signaling handles authentication placeholders, session joins, assignment responses, and SDP/ICE relay
+- WebSocket signaling handles local auth handoff, session joins, assignment responses, and SDP/ICE relay
 - PostgreSQL is the source of truth for control-plane history
-- Redis is not yet deeply integrated into the runtime behavior
-- media transport is not handled by the API; browser peers will eventually use WebRTC directly
+- Redis is used for transient presence and short-lived realtime coordination
+- media transport is not handled by the API; browser peers use WebRTC directly
 
 ## Current limitations
 
-- auth is placeholder-level
-- reconnect and heartbeat recovery are only partially implemented
-- Docker and nginx are being brought to minimum structural coherence
-- tests are not implemented yet
+- auth is seeded local-prototype auth only
+- reconnect and heartbeat recovery are implemented in bounded prototype form and still require runtime verification
+- admin and analytics tooling are deferred
+- regression coverage is still thin; the repo currently has one E2E happy-path script plus manual verification docs

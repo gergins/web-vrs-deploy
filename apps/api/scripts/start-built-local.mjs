@@ -4,8 +4,9 @@ import { loadLocalApiEnv } from "./local-env.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "../../..");
-const envFile = resolve(repoRoot, ".env.example");
+const preferredEnvFile = resolve(repoRoot, ".env");
+const fallbackEnvFile = resolve(repoRoot, ".env.example");
 
-loadLocalApiEnv(envFile);
+loadLocalApiEnv(preferredEnvFile, fallbackEnvFile);
 
 await import(pathToFileURL(resolve(__dirname, "../dist/server.js")).href);

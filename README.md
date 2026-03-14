@@ -92,18 +92,22 @@ pnpm.cmd demo:api
 pnpm.cmd demo:web
 ```
 
+Normal local API starts prefer the repo-root `.env`.
+If `.env` is missing, the local API scripts fall back to `.env.example`.
+
 Default local URLs:
 - app: `http://localhost:3000`
-- api: `http://localhost:4000`
-- websocket: `ws://localhost:4000/ws`
+- api: `http://localhost:3001`
+- websocket: `ws://localhost:3001/ws`
 
 ## Seeded local identities
 
 Current local prototype users:
 - Deaf user: `user-signer-1`
-- Interpreter: `user-interpreter-1`
+- Interpreter 1: `user-interpreter-1`
+- Interpreter 2: `user-interpreter-2`
 
-The home page `/` provides the local role-based login entry for these seeded identities.
+The home page `/` provides the local role-based login entry for the seeded signer and interpreter identities.
 
 ## Verification
 
