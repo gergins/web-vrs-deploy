@@ -23,4 +23,40 @@ export class SessionRepository {
       where: { id }
     });
   }
+
+  findLatestActiveByInterpreterId(
+    interpreterId: string
+  ): Promise<SessionRecordModel | null> {
+    return this.prisma.sessionRecord.findFirst({
+      where: {
+        interpreterId,
+        endedAt: null,
+        state: {
+          notIn: ["completed", "cancelled", "failed"]
+        }
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+  }
+
+  async markCompleted(id: string): Promise<SessionRecordModel | null> {
+    const result = await this.prisma.sessionRecord.updateMany({
+      where: {
+        id,
+        endedAt: null
+      },
+      data: {
+        state: "completed",
+        endedAt: new Date()
+      }
+    });
+
+    if (result.count === 0) {
+      return this.findById(id);
+    }
+
+    return this.findById(id);
+  }
 }

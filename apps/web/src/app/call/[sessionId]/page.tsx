@@ -166,6 +166,10 @@ export default function CallPage() {
     shouldAutoDismissTerminalOverlay && !terminalOverlayVisible ? null : rawLocalVideoOverlayMessage;
   const remoteVideoOverlayMessage =
     shouldAutoDismissTerminalOverlay && !terminalOverlayVisible ? null : rawRemoteVideoOverlayMessage;
+  const hideTerminalNoStreamPlaceholder =
+    shouldAutoDismissTerminalOverlay && !terminalOverlayVisible;
+  const localVideoPlaceholderText = hideTerminalNoStreamPlaceholder ? null : "Local preview unavailable";
+  const remoteVideoPlaceholderText = hideTerminalNoStreamPlaceholder ? null : "Remote peer unavailable";
   const pageLevelStatus =
     showTerminalPageMessage
       ? status
@@ -1503,7 +1507,11 @@ export default function CallPage() {
             <h2 style={{ margin: "0 0 8px" }}>{localPaneTitle}</h2>
             <p style={{ margin: 0 }}>{localPaneDescription}</p>
           </div>
-          <LocalVideo stream={localStream} overlayMessage={localVideoOverlayMessage} />
+          <LocalVideo
+            stream={localStream}
+            overlayMessage={localVideoOverlayMessage}
+            placeholderText={localVideoPlaceholderText}
+          />
         </section>
 
         <section
@@ -1523,6 +1531,7 @@ export default function CallPage() {
           <RemoteVideo
             stream={remoteStream}
             overlayMessage={remoteVideoOverlayMessage}
+            placeholderText={remoteVideoPlaceholderText}
             onStateChange={setRemoteVideoState}
           />
         </section>

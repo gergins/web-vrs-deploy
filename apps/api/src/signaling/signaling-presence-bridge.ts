@@ -1,5 +1,5 @@
 import { createOutboundSignalMessage, type OutboundSignalMessage } from "./dto/outbound-signal-message";
-import type { WebSocket } from "ws";
+import { WebSocket } from "ws";
 import { SignalingConnectionRegistry } from "./signaling-connection-registry";
 import { SignalingHeartbeat } from "./signaling-heartbeat";
 import { SignalingSessionRegistry } from "./signaling-session-registry";
@@ -40,16 +40,43 @@ export const signalingPresenceBridge = {
       return false;
     }
 
-    send(socket, message);
-    logger.info("[signal] outbound", {
-      connectionId,
-      target: "user",
-      type: message.type,
-      correlationId: message.correlationId,
-      sessionId: message.sessionId,
-      actorId: message.actorId
-    });
-    return true;
+    if (socket.readyState !== WebSocket.OPEN) {
+      logger.warn("[signal] outbound_skipped", {
+        connectionId,
+        target: "user",
+        type: message.type,
+        correlationId: message.correlationId,
+        sessionId: message.sessionId,
+        actorId: message.actorId,
+        reason: "socket_not_open",
+        readyState: socket.readyState
+      });
+      return false;
+    }
+
+    try {
+      send(socket, message);
+      logger.info("[signal] outbound", {
+        connectionId,
+        target: "user",
+        type: message.type,
+        correlationId: message.correlationId,
+        sessionId: message.sessionId,
+        actorId: message.actorId
+      });
+      return true;
+    } catch (error) {
+      logger.warn("[signal] outbound_failed", {
+        connectionId,
+        target: "user",
+        type: message.type,
+        correlationId: message.correlationId,
+        sessionId: message.sessionId,
+        actorId: message.actorId,
+        error: error instanceof Error ? error.message : "Unknown send error"
+      });
+      return false;
+    }
   },
   emitToUser(userId: string, message: OutboundSignalMessage) {
     const connectionIds = connectionRegistry.getConnectionsForUser(userId);

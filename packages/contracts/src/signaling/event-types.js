@@ -16,6 +16,7 @@ export const outboundEventTypes = [
     "queue.updated",
     "assignment.offered",
     "assignment.accepted",
+    "assignment.cancelled",
     "assignment.declined",
     "session.created",
     "session.joined",

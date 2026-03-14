@@ -1,3 +1,5 @@
+import { routingModes, type RoutingMode } from "../../../../packages/contracts/src/shared/routing";
+
 type ApiEnv = {
   nodeEnv: string;
   apiPort: number;
@@ -15,6 +17,9 @@ type ApiEnv = {
   turnTlsPort: number;
   turnSharedSecret: string;
   turnCredentialTtlSeconds: number;
+  queueOfferTimeoutMs: number;
+  routingMode: RoutingMode;
+  simultaneousOfferFanout: number;
 };
 
 function requireString(name: string) {
@@ -51,6 +56,21 @@ function readNumber(name: string, defaultValue: number) {
   return value;
 }
 
+function readRoutingMode(name: string, defaultValue: RoutingMode): RoutingMode {
+  const raw = process.env[name];
+  if (raw === undefined || raw === "") {
+    return defaultValue;
+  }
+
+  if (!routingModes.includes(raw as RoutingMode)) {
+    throw new Error(
+      `Environment variable ${name} must be one of: ${routingModes.join(", ")}`
+    );
+  }
+
+  return raw as RoutingMode;
+}
+
 function requireStringList(name: string) {
   const value = requireString(name);
   const items = value
@@ -81,5 +101,8 @@ export const env: ApiEnv = {
   turnTlsPort: readNumber("TURN_TLS_PORT", 0),
   turnSharedSecret: requireString("TURN_SHARED_SECRET"),
   turnCredentialTtlSeconds: requireNumber("TURN_CREDENTIAL_TTL_SECONDS"),
+  queueOfferTimeoutMs: readNumber("QUEUE_OFFER_TIMEOUT_MS", 20000),
+  routingMode: readRoutingMode("ROUTING_MODE", "sequential"),
+  simultaneousOfferFanout: readNumber("SIMULTANEOUS_OFFER_FANOUT", 2),
   logLevel: process.env.LOG_LEVEL ?? "info"
 };

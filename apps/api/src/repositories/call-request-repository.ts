@@ -28,6 +28,20 @@ export class CallRequestRepository {
     });
   }
 
+  findActiveOfferedByInterpreterId(
+    interpreterId: string
+  ): Promise<CallRequestRecord | null> {
+    return this.prisma.callRequest.findFirst({
+      where: {
+        state: "offered",
+        assignedInterpreterId: interpreterId
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+  }
+
   updateState(id: string, state: string, assignedInterpreterId?: string | null) {
     return this.prisma.callRequest.update({
       where: { id },
@@ -36,5 +50,25 @@ export class CallRequestRepository {
         ...(assignedInterpreterId === undefined ? {} : { assignedInterpreterId })
       }
     });
+  }
+
+  async claimAccepted(id: string, interpreterId: string) {
+    const result = await this.prisma.callRequest.updateMany({
+      where: {
+        id,
+        state: "offered",
+        assignedInterpreterId: interpreterId
+      },
+      data: {
+        state: "accepted",
+        assignedInterpreterId: interpreterId
+      }
+    });
+
+    if (result.count === 0) {
+      return null;
+    }
+
+    return this.findById(id);
   }
 }

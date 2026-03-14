@@ -116,6 +116,11 @@ Participant
 }
 ```
 
+Seeded interpreter identities available for local testing:
+
+- `user-interpreter-1`
+- `user-interpreter-2`
+
 InterpreterStatus
 ```json
 {
@@ -228,6 +233,7 @@ WebSocket message envelope:
 
 Manual validation:
 - authenticate interpreter on `/interpreter`
+- choose `user-interpreter-1` or `user-interpreter-2` from the seeded interpreter selector
 - confirm identity persists after reload
 - create a call from signer flow
 - confirm offer appears on interpreter page

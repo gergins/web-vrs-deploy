@@ -9,6 +9,14 @@ export class InterpreterService {
     return this.interpreterRepository.findAvailable(excludedInterpreterIds);
   }
 
+  findAvailableInterpreters(limit: number, excludedInterpreterIds: string[] = []) {
+    return this.interpreterRepository.findAvailableMany(limit, excludedInterpreterIds);
+  }
+
+  findInterpreterById(id: string) {
+    return this.interpreterRepository.findById(id);
+  }
+
   findInterpreterByUserId(userId: string) {
     return this.interpreterRepository.findByUserId(userId);
   }

@@ -8,6 +8,7 @@ export const signalingEvents = {
   queueUpdated: "queue.updated",
   assignmentOffered: "assignment.offered",
   assignmentAccepted: "assignment.accepted",
+  assignmentCancelled: "assignment.cancelled",
   assignmentDeclined: "assignment.declined",
   sessionCreated: "session.created",
   sessionJoined: "session.joined",

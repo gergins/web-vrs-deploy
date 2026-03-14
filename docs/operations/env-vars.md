@@ -59,6 +59,8 @@ This file documents the environment variables that are currently used by the rep
 - `TURN_PASSWORD`
 - `CORS_ORIGIN`
 - `LOG_LEVEL`
+- `ROUTING_MODE`
+- `SIMULTANEOUS_OFFER_FANOUT`
 - `RECONNECT_GRACE_MS`
 - `QUEUE_OFFER_TIMEOUT_MS`
 - `SESSION_HEARTBEAT_INTERVAL_MS`
@@ -66,5 +68,7 @@ This file documents the environment variables that are currently used by the rep
 ## Notes
 
 - the API currently validates a server-side subset at startup
+- `ROUTING_MODE` currently supports `sequential` and `simultaneous`
+- `SIMULTANEOUS_OFFER_FANOUT` controls how many interpreters are targeted when `ROUTING_MODE=simultaneous`
 - the web app currently needs `NEXT_PUBLIC_API_BASE_URL` and `NEXT_PUBLIC_WS_URL` for explicit browser configuration
 - some documented variables exist for near-term runtime coherence even if the deeper feature that uses them is still scaffold-level

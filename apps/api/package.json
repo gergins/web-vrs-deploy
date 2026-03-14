@@ -20,7 +20,7 @@
     "seed:local:built": "node --env-file=../../.env.example ./scripts/seed-local.mjs"
   },
   "dependencies": {
-    "@prisma/client": "^6.0.0",
+    "@prisma/client": "^6.19.2",
     "cors": "^2.8.5",
     "express": "^5.0.0",
     "redis": "^5.8.2",

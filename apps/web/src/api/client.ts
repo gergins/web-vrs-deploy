@@ -32,6 +32,26 @@ export type TurnCredentialsResponse = {
   };
 };
 
+export type InterpreterActiveOffer = {
+  assignmentAttemptId: string;
+  callRequestId: string;
+  interpreterId: string;
+};
+
+export type InterpreterActiveOfferResponse = {
+  ok: true;
+  activeOffer: InterpreterActiveOffer | null;
+};
+
+export type InterpreterActiveSession = {
+  sessionId: string;
+};
+
+export type InterpreterActiveSessionResponse = {
+  ok: true;
+  activeSession: InterpreterActiveSession | null;
+};
+
 export async function authenticateLocalUser(input: LocalAuthInput) {
   const { apiBaseUrl } = getPublicEnv();
   const response = await fetch(`${apiBaseUrl}/auth/local`, {
@@ -92,6 +112,40 @@ export async function getSession(sessionId: string) {
 export async function getTurnCredentials(): Promise<TurnCredentialsResponse> {
   const { apiBaseUrl } = getPublicEnv();
   const response = await fetch(`${apiBaseUrl}/turn/credentials`);
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+
+  return response.json();
+}
+
+export async function getInterpreterActiveOffer(
+  userId: string
+): Promise<InterpreterActiveOfferResponse> {
+  const { apiBaseUrl } = getPublicEnv();
+  const response = await fetch(`${apiBaseUrl}/interpreters/active-offer`, {
+    headers: {
+      "x-user-id": userId
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+
+  return response.json();
+}
+
+export async function getInterpreterActiveSession(
+  userId: string
+): Promise<InterpreterActiveSessionResponse> {
+  const { apiBaseUrl } = getPublicEnv();
+  const response = await fetch(`${apiBaseUrl}/interpreters/active-session`, {
+    headers: {
+      "x-user-id": userId
+    }
+  });
 
   if (!response.ok) {
     throw new Error(await readErrorMessage(response));

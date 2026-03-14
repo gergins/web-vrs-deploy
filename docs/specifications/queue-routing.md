@@ -11,6 +11,10 @@ Responsibilities:
 - emit assignment offers
 - coordinate fair routing evolution without bypassing session creation
 
+Current routing mode support:
+- `sequential` is implemented
+- `simultaneous` is implemented as bounded multi-interpreter offer fanout
+
 This subsystem does NOT handle:
 - browser media transport
 - WebRTC offer/answer negotiation
@@ -75,6 +79,7 @@ Responsibilities:
 - select available interpreter candidate
 - create assignment attempts
 - emit `assignment.offered`
+- claim acceptance before session creation
 - accept or decline assignment
 - create session on acceptance
 
@@ -160,6 +165,7 @@ WebSocket messages used:
 - `client.auth`
 - `assignment.offered`
 - `assignment.accepted`
+- `assignment.cancelled`
 - `assignment.declined`
 - `session.created`
 - `server.error`
@@ -177,12 +183,21 @@ Redis queue design:
   - session creation
 
 Call assignment algorithm:
-1. load available interpreters from authoritative service inputs
-2. choose a candidate using current deterministic rule set
-3. create an assignment attempt in PostgreSQL
-4. emit `assignment.offered` to the selected interpreter
-5. on accept, create the session
-6. on decline/timeout, move to next routing attempt
+1. read the configured routing mode
+2. in `sequential` mode, load available interpreters from authoritative service inputs
+3. in `simultaneous` mode, select a bounded set of available interpreters
+4. create one or more `AssignmentAttempt` rows in PostgreSQL with outcome `offered`
+5. in `sequential` mode, record the current offered target on `assignedInterpreterId`
+6. emit `assignment.offered` to each targeted interpreter
+7. on accept, first claim the offered call and assignment attempt through the acceptance boundary
+8. if the claim succeeds, the accepted assignment attempt becomes the winner record, all other still-offered attempts for that call are cancelled, those losing interpreters receive `assignment.cancelled`, and the session is created
+9. on decline/timeout, move to the next routing step that matches the configured mode
+
+Current state semantics:
+- `assignedInterpreterId` is the current offered target in sequential mode
+- the accepted winner is represented by the accepted `AssignmentAttempt`
+
+The current implementation rejects unsupported routing modes at API startup rather than silently changing runtime behavior.
 
 --------------------------------
 

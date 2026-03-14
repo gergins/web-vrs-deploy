@@ -18,6 +18,24 @@ export class InterpreterRepository {
     });
   }
 
+  findAvailableMany(
+    limit: number,
+    excludedInterpreterIds: string[] = []
+  ): Promise<InterpreterRecord[]> {
+    return this.prisma.interpreter.findMany({
+      where: {
+        status: "available",
+        id: {
+          notIn: excludedInterpreterIds
+        }
+      },
+      orderBy: {
+        createdAt: "asc"
+      },
+      take: limit
+    });
+  }
+
   findById(id: string): Promise<InterpreterRecord | null> {
     return this.prisma.interpreter.findUnique({
       where: { id }

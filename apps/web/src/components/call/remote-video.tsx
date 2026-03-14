@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 type RemoteVideoProps = {
   stream: MediaStream | null;
   overlayMessage?: string | null;
+  placeholderText?: string | null;
   onStateChange?: (state: {
     hasStream: boolean;
     streamId: string | null;
@@ -16,7 +17,12 @@ type RemoteVideoProps = {
   }) => void;
 };
 
-export function RemoteVideo({ stream, overlayMessage, onStateChange }: RemoteVideoProps) {
+export function RemoteVideo({
+  stream,
+  overlayMessage,
+  placeholderText = "Remote peer unavailable",
+  onStateChange
+}: RemoteVideoProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
@@ -112,7 +118,7 @@ export function RemoteVideo({ stream, overlayMessage, onStateChange }: RemoteVid
         placeItems: "center"
       }}
     >
-      Remote peer unavailable
+      {placeholderText}
     </div>
   );
 }

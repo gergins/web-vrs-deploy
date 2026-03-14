@@ -5,9 +5,10 @@ import { useEffect, useRef } from "react";
 type LocalVideoProps = {
   stream: MediaStream | null;
   overlayMessage?: string | null;
+  placeholderText?: string | null;
 };
 
-export function LocalVideo({ stream, overlayMessage }: LocalVideoProps) {
+export function LocalVideo({ stream, overlayMessage, placeholderText = "Local preview unavailable" }: LocalVideoProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
@@ -47,7 +48,7 @@ export function LocalVideo({ stream, overlayMessage }: LocalVideoProps) {
           placeItems: "center"
         }}
       >
-        Local preview unavailable
+        {placeholderText}
       </div>
     );
   }

@@ -24,12 +24,32 @@ async function main() {
     }
   });
 
+  await prisma.user.upsert({
+    where: { email: "interpreter2@example.com" },
+    update: { role: "interpreter" },
+    create: {
+      id: "user-interpreter-2",
+      email: "interpreter2@example.com",
+      role: "interpreter"
+    }
+  });
+
   await prisma.interpreter.upsert({
     where: { userId: "user-interpreter-1" },
     update: { status: "available" },
     create: {
       id: "interpreter-1",
       userId: "user-interpreter-1",
+      status: "available"
+    }
+  });
+
+  await prisma.interpreter.upsert({
+    where: { userId: "user-interpreter-2" },
+    update: { status: "available" },
+    create: {
+      id: "interpreter-2",
+      userId: "user-interpreter-2",
       status: "available"
     }
   });

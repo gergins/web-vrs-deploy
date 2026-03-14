@@ -35,5 +35,11 @@
     "db:seed": "pnpm --dir apps/api prisma:seed",
     "up": "docker compose up --build",
     "down": "docker compose down"
+  },
+  "devDependencies": {
+    "prisma": "^7.5.0"
+  },
+  "dependencies": {
+    "@prisma/client": "^7.5.0"
   }
 }

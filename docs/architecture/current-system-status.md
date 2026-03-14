@@ -59,11 +59,30 @@
   - `/queue` call request flow
   - queue waiting experience
   - queue progress status
+  - queue primary action and status copy now reflect live call progress with `Calling...`, connected/opening-call feedback, and decline-then-continue-calling feedback using the existing queue and assignment events
 - last verified by: Codex
-- verification type: implementation status sync from current repo context
+- verification type: `pnpm.cmd --dir apps/web typecheck`
 - known limits:
   - prototype queue UX only
   - no history or advanced retry controls
+  - runtime verification is still required for signer queue flows covering active call request, interpreter accept, and interpreter decline copy transitions
+
+### Queue Routing Mode Foundation
+
+- component name: Queue Routing Mode Foundation
+- current status: working
+- what is working:
+  - backend routing mode contract now exists with `sequential` and `simultaneous` mode values
+  - API env parsing now accepts `ROUTING_MODE`
+  - current assignment offer flow now branches through an explicit routing-mode extension point in `AssignmentService`
+  - `sequential` preserves the existing single-interpreter offer behavior
+  - unsupported `simultaneous` mode is rejected explicitly at API startup instead of silently changing runtime behavior
+- last verified by: Codex
+- verification type: `pnpm.cmd --dir apps/api typecheck`, `pnpm.cmd --dir apps/web typecheck`
+- known limits:
+  - only `sequential` routing is implemented
+  - simultaneous multi-interpreter offers are not implemented yet
+  - no admin routing-mode control exists yet; configuration is backend env only
 
 ### Interpreter UI
 
@@ -75,11 +94,16 @@
   - incoming call offer panel
   - accept and decline controls
   - navigation to `/call/[sessionId]`
+  - if the interpreter refreshes on `/interpreter` after winning but before live navigation completes, the workspace now restores the current active session through an interpreter-scoped active-session lookup and redirects back into `/call/[sessionId]`
+  - interpreter workspace now restores a currently active offered assignment through an identity-scoped active-offer API lookup on load
+  - active-offer recovery now returns offers only when the call request is still currently offered, the requester is still present, and the matching offered attempt for that interpreter is still within `QUEUE_OFFER_TIMEOUT_MS`
+  - in simultaneous mode, when another interpreter wins the same call, non-winning interpreters now receive `assignment.cancelled` and their stale offer card is removed immediately without refresh
 - last verified by: Codex
-- verification type: implementation status sync from current repo context
+- verification type: `pnpm.cmd --dir apps/web typecheck`, `pnpm.cmd --dir apps/api typecheck`
 - known limits:
   - no advanced workspace tooling
   - no analytics or supervisor features
+  - live runtime verification is still required for interpreter refresh during an active offered assignment and for fresh entry with no active offer
 
 ### Call UI
 
@@ -97,7 +121,7 @@
   - local-ended and remote-ended terminal messages now render on the correct pane
   - terminal pane messages auto-dismiss after a short delay while ended and departed call state remains correct
   - page-level terminal helper and guidance text on `/call/[sessionId]` now auto-dismiss after a short delay for local hangup and terminal remote departure while the underlying ended/departed state remains truthful
-  - no-stream local and remote pane placeholders now stay generic and no longer repeat terminal hangup or departure text from `overlayMessage`
+  - no-stream local and remote pane placeholders no longer repeat terminal text from `overlayMessage`, and terminal-state placeholder copy now dismisses on the same short delay as the pane terminal messaging
   - the persistent Status card description on `/call/[sessionId]` now uses generic call-state wording instead of terminal phrasing that could be mistaken for a stuck hangup/departure message
 - last verified by: Codex
 - verification type: `pnpm.cmd --dir apps/web typecheck`
@@ -105,10 +129,10 @@
   - text chat is placeholder only
   - no device settings UI
   - role-aware pane and page-level terminal auto-dismiss timing should still be manually rechecked in-browser for Deaf and Interpreter hangup flows
-  - root cause: even after timed terminal render paths were cleaned up, the static Status card paragraph still included the terminal phrase `has left the call`, so persistent descriptive copy could be mistaken for a stuck terminal message
-  - fix applied: the Status card description now uses generic call-state wording and no longer includes terminal departure phrasing
-  - expected behavior: once timed terminal messages disappear, the Status card retains only neutral descriptive text about call state and recovery progress
-  - verification status: `pnpm.cmd --dir apps/web typecheck` covers the bounded copy change; live browser verification is still required to confirm no lingering terminal-looking text remains in the visible call UI
+  - root cause: after the timed terminal overlay copy disappeared, the no-stream pane fallbacks still rendered persistent generic `Local preview unavailable` and `Remote peer unavailable` text during terminal end state, leaving a visible message on screen indefinitely
+  - fix applied: `/call/[sessionId]` now suppresses those no-stream placeholder labels after the existing terminal overlay timeout while keeping the generic fallback text for non-terminal no-stream cases
+  - expected behavior: after local hangup or terminal remote departure, pane terminal copy remains briefly, then both the overlay text and the pane placeholder text disappear while internal terminal state remains unchanged
+  - verification status: `pnpm.cmd --dir apps/web typecheck` covers the bounded pane-rendering change; live browser verification is still required to confirm the post-timeout panes no longer show persistent fallback text after terminal end
 
 ### Media Layer
 

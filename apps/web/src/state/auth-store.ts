@@ -15,6 +15,10 @@ export const seededIdentities: AuthIdentity[] = [
   {
     userId: "user-interpreter-1",
     role: "interpreter"
+  },
+  {
+    userId: "user-interpreter-2",
+    role: "interpreter"
   }
 ];
 
@@ -69,4 +73,8 @@ export function clearStoredAuthIdentity() {
 
 export function getSeededIdentityForRole(role: AuthRole) {
   return seededIdentities.find((identity) => identity.role === role) ?? null;
+}
+
+export function getSeededIdentitiesForRole(role: AuthRole) {
+  return seededIdentities.filter((identity) => identity.role === role);
 }

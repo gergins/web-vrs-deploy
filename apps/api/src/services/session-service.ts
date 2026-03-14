@@ -47,4 +47,17 @@ export class SessionService {
 
     return false;
   }
+
+  async getActiveSessionForInterpreterUser(userId: string) {
+    const interpreter = await this.interpreterService.findInterpreterByUserId(userId);
+    if (!interpreter) {
+      return null;
+    }
+
+    return this.sessionRepository.findLatestActiveByInterpreterId(interpreter.id);
+  }
+
+  markSessionCompleted(sessionId: string) {
+    return this.sessionRepository.markCompleted(sessionId);
+  }
 }

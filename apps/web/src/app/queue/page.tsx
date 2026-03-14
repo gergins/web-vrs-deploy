@@ -32,6 +32,44 @@ function buildCallUrl(sessionId: string, role: "signer" | "interpreter") {
   return `/call/${sessionId}?${params.toString()}`;
 }
 
+function getQueueActionLabel(options: {
+  identity: AuthIdentity | null;
+  callRequestId: string;
+  callState: string | null;
+  sessionId: string | null;
+  lastEventType: string;
+  statusText: string;
+}) {
+  const {
+    identity,
+    callRequestId,
+    callState,
+    sessionId,
+    lastEventType,
+    statusText
+  } = options;
+
+  if (!identity) {
+    return "Start Call";
+  }
+
+  if (sessionId || callState === "session_created" || callState === "accepted") {
+    return "Connected...";
+  }
+
+  if (
+    statusText === "Creating call request" ||
+    callState === "requesting" ||
+    callState === "queued" ||
+    callState === "offered" ||
+    Boolean(callRequestId)
+  ) {
+    return "Calling...";
+  }
+
+  return "Start Call";
+}
+
 export default function QueuePage() {
   const router = useRouter();
   const wsUrl = useMemo(() => getPublicEnv().wsUrl, []);
@@ -46,6 +84,14 @@ export default function QueuePage() {
   const [error, setError] = useState<string | null>(null);
   const [navigationTarget, setNavigationTarget] = useState("none yet");
   const [lastEventActorId, setLastEventActorId] = useState("none");
+  const queueActionLabel = getQueueActionLabel({
+    identity,
+    callRequestId,
+    callState,
+    sessionId,
+    lastEventType,
+    statusText
+  });
 
   useEffect(() => {
     const stored = getStoredAuthIdentity();
@@ -83,6 +129,9 @@ export default function QueuePage() {
         const state = typed.payload.state;
         if (typeof state === "string") {
           setCallState(state);
+          if (state === "queued" || state === "offered" || state === "requesting") {
+            setStatusText("Calling interpreter...");
+          }
         }
       }
 
@@ -90,19 +139,19 @@ export default function QueuePage() {
         const targetUrl = buildCallUrl(typed.sessionId, "signer");
         setSessionId(typed.sessionId);
         setCallState("session_created");
-        setStatusText("Session created, opening call page");
+        setStatusText("Connected, opening call...");
         setNavigationTarget(targetUrl);
         router.push(targetUrl);
       }
 
       if (typed.type === signalingEvents.assignmentAccepted) {
         setCallState("accepted");
-        setStatusText("Assignment accepted");
+        setStatusText("Connected to interpreter");
       }
 
       if (typed.type === signalingEvents.assignmentDeclined) {
         setCallState("queued");
-        setStatusText("Assignment declined, waiting in queue");
+        setStatusText("Interpreter declined, calling next interpreter...");
       }
 
       if (typed.type === signalingEvents.serverError) {
@@ -167,7 +216,7 @@ export default function QueuePage() {
       console.log("[queue] call request created", createdCallRequest);
       setCallRequestId(createdCallRequest.id);
       setCallState(createdCallRequest.state);
-      setStatusText("Call request created");
+      setStatusText("Calling interpreter...");
     } catch (submitError) {
       console.error("[queue] call request failed", submitError);
       setError(submitError instanceof Error ? submitError.message : "Unknown queue error");
@@ -225,7 +274,7 @@ export default function QueuePage() {
           </button>
         ) : null}
         <button type="submit" style={{ width: 220, padding: 10 }} data-testid="queue-create-call">
-          Start Call
+          {queueActionLabel}
         </button>
       </form>
 
