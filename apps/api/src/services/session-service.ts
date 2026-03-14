@@ -1,4 +1,5 @@
 import { SessionRepository } from "../repositories/session-repository";
+import type { SessionRecordModel } from "../db/model-types";
 import { InterpreterService } from "./interpreter-service";
 import { createId } from "../utils/ids";
 
@@ -59,5 +60,14 @@ export class SessionService {
 
   markSessionCompleted(sessionId: string) {
     return this.sessionRepository.markCompleted(sessionId);
+  }
+
+  async markSessionsCompleted(sessionIds: string[]): Promise<SessionRecordModel[]> {
+    const uniqueSessionIds = [...new Set(sessionIds.filter(Boolean))];
+    const completedSessions = await Promise.all(
+      uniqueSessionIds.map((sessionId) => this.sessionRepository.markCompleted(sessionId))
+    );
+
+    return completedSessions.filter((session): session is SessionRecordModel => Boolean(session));
   }
 }

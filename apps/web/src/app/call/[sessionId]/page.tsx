@@ -1,6 +1,7 @@
 "use client";
 
-import { useParams, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ConnectionStatus } from "../../../components/call/connection-status";
 import { LocalVideo } from "../../../components/call/local-video";
@@ -8,7 +9,11 @@ import { MediaControls } from "../../../components/call/media-controls";
 import { RemoteVideo } from "../../../components/call/remote-video";
 import { SignalingClient } from "../../../signaling/signaling-client";
 import { createClientEnvelope, signalingEvents } from "../../../signaling/signaling-events";
-import { authenticateLocalUser, getTurnCredentials } from "../../../api/client";
+import {
+  authenticateLocalUser,
+  getInterpreterActiveSession,
+  getTurnCredentials
+} from "../../../api/client";
 import {
   getSeededIdentityForRole,
   getStoredAuthIdentity,
@@ -30,6 +35,7 @@ const TERMINAL_MESSAGE_DISMISS_MS = 4000;
 
 export default function CallPage() {
   const params = useParams<{ sessionId: string }>();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = params.sessionId;
   const rawSearchParams = searchParams.toString();
@@ -132,11 +138,13 @@ export default function CallPage() {
   });
   const [browserUrl, setBrowserUrl] = useState("");
   const [authStatus, setAuthStatus] = useState("Unauthenticated");
+  const [staleCallMessage, setStaleCallMessage] = useState<string | null>(null);
   const [remoteDepartureUxState, setRemoteDepartureUxState] = useState<
     "none" | "reconnecting" | "departed" | "local_ended"
   >("none");
   const [terminalOverlayVisible, setTerminalOverlayVisible] = useState(false);
   const [terminalPageMessageVisible, setTerminalPageMessageVisible] = useState(false);
+  const staleJoinHandledRef = useRef(false);
   const isInterpreterView = parsedRole === "interpreter";
   const localPaneTitle = isInterpreterView ? "Interpreter video" : "Your video";
   const remotePaneTitle = isInterpreterView ? "Remote video" : "Interpreter video";
@@ -861,6 +869,14 @@ export default function CallPage() {
       const joinError = typed.payload.error;
       setErrorText(typeof joinError === "string" ? joinError : "Session join rejected");
       setCallPhase("failed");
+
+      if (
+        typeof joinError === "string" &&
+        joinError === "Connection is not authorized to join this session" &&
+        parsedRole === "interpreter"
+      ) {
+        void handleUnauthorizedInterpreterJoin();
+      }
     });
 
     client.on(signalingEvents.sessionEnded, (message) => {
@@ -1252,6 +1268,7 @@ export default function CallPage() {
     env.turnUrl,
     env.turnUsername,
     parsedRole,
+    router,
     sessionId,
     wsUrl,
     authenticatedIdentity
@@ -1280,6 +1297,41 @@ export default function CallPage() {
     } catch (authError) {
       setAuthStatus("Authentication failed");
       setErrorText(authError instanceof Error ? authError.message : "Authentication failed");
+    }
+  }
+
+  async function handleUnauthorizedInterpreterJoin() {
+    if (
+      staleJoinHandledRef.current ||
+      parsedRole !== "interpreter" ||
+      !authenticatedIdentity
+    ) {
+      return;
+    }
+
+    staleJoinHandledRef.current = true;
+    const unauthorizedMessage =
+      "This call session is not assigned to the current interpreter. Returning to the interpreter workspace.";
+    setStatus("Session not assigned to this interpreter");
+    setErrorText(unauthorizedMessage);
+    setStaleCallMessage(unauthorizedMessage);
+    setCallPhase("failed");
+
+    try {
+      const activeSessionResult = await getInterpreterActiveSession(authenticatedIdentity.userId);
+      const activeSessionId = activeSessionResult.activeSession?.sessionId ?? null;
+
+      await closeTerminalSession();
+
+      if (activeSessionId && activeSessionId !== sessionId) {
+        router.replace(`/call/${activeSessionId}?role=interpreter`);
+        return;
+      }
+
+      router.replace("/interpreter");
+    } catch {
+      await closeTerminalSession();
+      router.replace("/interpreter");
     }
   }
 
@@ -1362,6 +1414,25 @@ export default function CallPage() {
             <div data-testid="call-actor-id" style={{ marginTop: 6 }}><strong>Actor:</strong> {derivedActorId}</div>
           </div>
         </div>
+
+        {staleCallMessage ? (
+          <section
+            style={{
+              padding: 16,
+              border: "1px solid #f0c36d",
+              borderRadius: 12,
+              background: "#fff8e8",
+              display: "grid",
+              gap: 10
+            }}
+          >
+            <div><strong>Stale session URL</strong></div>
+            <div>{staleCallMessage}</div>
+            <div>
+              <Link href="/interpreter">Return to Interpreter Workspace</Link>
+            </div>
+          </section>
+        ) : null}
 
         <div
           style={{

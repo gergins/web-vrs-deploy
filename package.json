@@ -28,6 +28,9 @@
     "test:e2e:happy-path": "node tests/e2e/authenticated-happy-path.mjs",
     "test:e2e:simultaneous-offer": "node tests/e2e/simultaneous-offer-fanout.mjs",
     "test:e2e:hangup-reoffer": "node tests/e2e/hangup-reoffer-eligibility.mjs",
+    "test:e2e:disconnect-grace": "node tests/e2e/disconnect-grace-active-session.mjs",
+    "test:e2e:stale-call-url": "node tests/e2e/stale-interpreter-call-url.mjs",
+    "test:e2e:core": "pnpm.cmd test:e2e:happy-path && pnpm.cmd test:e2e:simultaneous-offer && pnpm.cmd test:e2e:hangup-reoffer && pnpm.cmd test:e2e:disconnect-grace",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
@@ -39,7 +42,8 @@
     "down": "docker compose down"
   },
   "devDependencies": {
-    "prisma": "^7.5.0"
+    "prisma": "^7.5.0",
+    "ws": "^8.18.0"
   },
   "dependencies": {
     "@prisma/client": "^7.5.0"

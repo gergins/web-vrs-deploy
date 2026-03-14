@@ -4,11 +4,13 @@ import { SignalingConnectionRegistry } from "./signaling-connection-registry";
 import { SignalingHeartbeat } from "./signaling-heartbeat";
 import { SignalingSessionRegistry } from "./signaling-session-registry";
 import { logger } from "../config/logger";
+import { SessionService } from "../services/session-service";
 
 const sockets = new Map<string, WebSocket>();
 const connectionRegistry = new SignalingConnectionRegistry();
 const sessionRegistry = new SignalingSessionRegistry();
 const heartbeat = new SignalingHeartbeat();
+const sessionService = new SessionService();
 const pendingDepartures = new Map<
   string,
   {
@@ -107,54 +109,70 @@ export const signalingPresenceBridge = {
       graceMs: input.graceMs
     });
 
-    const timeout = setTimeout(() => {
-      pendingDepartures.delete(input.connectionId);
-      logger.info("[signal] disconnect_grace_expired", {
-        connectionId: input.connectionId,
-        userId: input.userId,
-        sessionIds: input.sessionIds
-      });
+    const timeout = setTimeout(async () => {
+      try {
+        pendingDepartures.delete(input.connectionId);
+        logger.info("[signal] disconnect_grace_expired", {
+          connectionId: input.connectionId,
+          userId: input.userId,
+          sessionIds: input.sessionIds
+        });
 
-      for (const sessionId of input.sessionIds) {
-        for (const peerConnectionId of sessionRegistry.getPeerConnections(
-          sessionId,
-          input.connectionId
-        )) {
-          logger.info("[signal] session_ended_emitted", {
-            connectionId: input.connectionId,
-            userId: input.userId,
+        const completedSessions = await sessionService.markSessionsCompleted(input.sessionIds);
+        logger.info("[signal] disconnect_grace_sessions_completed", {
+          connectionId: input.connectionId,
+          userId: input.userId,
+          completedSessionIds: completedSessions.map((session) => session.id)
+        });
+
+        for (const sessionId of input.sessionIds) {
+          for (const peerConnectionId of sessionRegistry.getPeerConnections(
             sessionId,
-            peerConnectionId
-          });
-          signalingPresenceBridge.emitToConnection(
-            peerConnectionId,
-            createOutboundSignalMessage({
-              correlationId: input.connectionId,
-              type: "session.ended",
-              actorId: input.userId,
+            input.connectionId
+          )) {
+            logger.info("[signal] session_ended_emitted", {
+              connectionId: input.connectionId,
+              userId: input.userId,
               sessionId,
-              payload: {
-                connectionId: input.connectionId,
-                reason: "reconnect_grace_expired"
-              }
-            })
-          );
+              peerConnectionId
+            });
+            signalingPresenceBridge.emitToConnection(
+              peerConnectionId,
+              createOutboundSignalMessage({
+                correlationId: input.connectionId,
+                type: "session.ended",
+                actorId: input.userId,
+                sessionId,
+                payload: {
+                  connectionId: input.connectionId,
+                  reason: "reconnect_grace_expired"
+                }
+              })
+            );
+          }
         }
-      }
 
-      logger.info("[signal] participant_removed_from_session", {
-        connectionId: input.connectionId,
-        userId: input.userId,
-        sessionIds: input.sessionIds
-      });
-      sessionRegistry.cleanupConnection(input.connectionId);
-      connectionRegistry.remove(input.connectionId);
-      const shouldClearUserCache =
-        connectionRegistry.getConnectionsForUser(input.userId).length === 0;
-      void heartbeat.remove(
-        input.connectionId,
-        shouldClearUserCache ? input.userId : undefined
-      );
+        logger.info("[signal] participant_removed_from_session", {
+          connectionId: input.connectionId,
+          userId: input.userId,
+          sessionIds: input.sessionIds
+        });
+        sessionRegistry.cleanupConnection(input.connectionId);
+        connectionRegistry.remove(input.connectionId);
+        const shouldClearUserCache =
+          connectionRegistry.getConnectionsForUser(input.userId).length === 0;
+        void heartbeat.remove(
+          input.connectionId,
+          shouldClearUserCache ? input.userId : undefined
+        );
+      } catch (error) {
+        logger.warn("[signal] disconnect_grace_cleanup_failed", {
+          connectionId: input.connectionId,
+          userId: input.userId,
+          sessionIds: input.sessionIds,
+          error: error instanceof Error ? error.message : "Unknown disconnect grace error"
+        });
+      }
     }, input.graceMs);
 
     pendingDepartures.set(input.connectionId, {

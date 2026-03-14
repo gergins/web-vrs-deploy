@@ -76,13 +76,13 @@
   - API env parsing now accepts `ROUTING_MODE`
   - current assignment offer flow now branches through an explicit routing-mode extension point in `AssignmentService`
   - `sequential` preserves the existing single-interpreter offer behavior
-  - unsupported `simultaneous` mode is rejected explicitly at API startup instead of silently changing runtime behavior
+  - `simultaneous` is implemented as bounded multi-interpreter fanout using `SIMULTANEOUS_OFFER_FANOUT`
+  - local API start paths now prefer repo-root `.env` and fall back to `.env.example`, reducing runtime-mode confusion during local testing
 - last verified by: Codex
 - verification type: `pnpm.cmd --dir apps/api typecheck`, `pnpm.cmd --dir apps/web typecheck`
 - known limits:
-  - only `sequential` routing is implemented
-  - simultaneous multi-interpreter offers are not implemented yet
   - no admin routing-mode control exists yet; configuration is backend env only
+  - local Docker Compose services still read `.env.example`, so containerized local runs can still differ from host-run `.env` unless kept aligned
 
 ### Interpreter UI
 
@@ -98,12 +98,14 @@
   - interpreter workspace now restores a currently active offered assignment through an identity-scoped active-offer API lookup on load
   - active-offer recovery now returns offers only when the call request is still currently offered, the requester is still present, and the matching offered attempt for that interpreter is still within `QUEUE_OFFER_TIMEOUT_MS`
   - in simultaneous mode, when another interpreter wins the same call, non-winning interpreters now receive `assignment.cancelled` and their stale offer card is removed immediately without refresh
+  - interpreter bootstrap no longer auto-authenticates from stored identity on `/interpreter`, preventing wrong-interpreter session/offer recovery before explicit confirmation
+  - interpreter offer bootstrap now avoids re-inserting cancelled offers and avoids clearing newer live websocket offers with stale empty bootstrap responses
 - last verified by: Codex
 - verification type: `pnpm.cmd --dir apps/web typecheck`, `pnpm.cmd --dir apps/api typecheck`
 - known limits:
   - no advanced workspace tooling
   - no analytics or supervisor features
-  - live runtime verification is still required for interpreter refresh during an active offered assignment and for fresh entry with no active offer
+  - stale call URL handling and disconnect-grace recovery should still be manually spot-checked in-browser as broader changes continue landing
 
 ### Call UI
 
@@ -178,10 +180,66 @@
   - remote media is cleared
   - terminal ended or participant-left UI is shown
   - send and close race removed
+  - explicit leave now persists `SessionRecord.state = completed` and `endedAt`, preventing stale active-session recovery after normal hangup
+  - interpreter can return to the workspace and receive a fresh next offer after explicit hangup cleanup
 - last verified by: Codex
-- verification type: apps/web typecheck, apps/api typecheck, implementation review
+- verification type: `pnpm.cmd --dir apps/web typecheck`, `pnpm.cmd --dir apps/api typecheck`, `pnpm.cmd test:e2e:hangup-reoffer`
 - known limits:
   - full runtime validation should still be recorded when executed in-browser
+
+### Disconnect Grace Cleanup
+
+- component name: Disconnect Grace Cleanup
+- current status: working
+- what is working:
+  - websocket disconnect without explicit `client.leave-session` now starts reconnect grace and preserves reconnect opportunity during that grace window
+  - if reconnect grace expires without successful rejoin, backend now persists terminal session completion by marking the affected `SessionRecord` rows `completed` and setting `endedAt`
+  - transient cleanup still occurs on grace expiry:
+    - peer `session.ended` emission
+    - session registry cleanup
+    - connection registry cleanup
+    - heartbeat cache cleanup
+  - active-session recovery now excludes those grace-expired sessions after persistence completes
+- last verified by: Codex
+- verification type: `pnpm.cmd --dir apps/api typecheck`, `pnpm.cmd --dir apps/web typecheck`, implementation review, automated regression added in `tests/e2e/disconnect-grace-active-session.mjs`
+- known limits:
+  - the disconnect-grace regression still depends on local browser timing and runtime setup
+  - full live browser verification remains useful for diagnosing machine-specific reconnect timing behavior
+
+### Stale Call URL Handling
+
+- component name: Stale Call URL Handling
+- current status: working
+- what is working:
+  - if an interpreter lands on `/call/[sessionId]` for a session they are not authorized to join, the call page now treats that as a stale interpreter call URL
+  - the page shows a clear stale-session message
+  - the page checks interpreter active-session recovery truth
+  - if there is no valid active session to recover, the page exits the stale call state and returns to `/interpreter`
+  - valid interpreter-owned active session recovery remains intact
+- last verified by: Codex
+- verification type: `pnpm.cmd --dir apps/web typecheck`, `pnpm.cmd --dir apps/api typecheck`
+- known limits:
+  - there is not yet a dedicated automated regression for stale call URL handling
+
+### Core E2E Regression Suite
+
+- component name: Core E2E Regression Suite
+- current status: working
+- what is working:
+  - repo-root browser regressions now exist for:
+    - authenticated happy path
+    - simultaneous offer fanout
+    - explicit hangup cleanup and reoffer eligibility
+    - disconnect-grace expiry and post-refresh interpreter recovery
+  - repo root now has a combined command:
+    - `pnpm.cmd test:e2e:core`
+  - `tests/README.md` documents prerequisites and current coverage
+  - `docs/verification/e2e-regression-matrix.md` summarizes covered, partial, and missing lifecycle areas
+- last verified by: Codex
+- verification type: `pnpm.cmd --dir apps/api typecheck`, `pnpm.cmd --dir apps/web typecheck`
+- known limits:
+  - root-run browser tests still depend on `pnpm.cmd install`, local stack readiness, seeded DB state, and Chrome at the expected path
+  - stale call URL handling, decline/requeue automation, no-accept timeout flow, and media/TURN reliability are not yet fully covered by the current suite
 
 ### TURN Credential Service API
 
@@ -216,7 +274,9 @@
 ## 3. In-progress components
 
 - Basic in-call text chat in `/call/[sessionId]`
-- Client ICE configuration wiring in `/call/[sessionId]` pending runtime call-flow validation
+- stale call URL regression automation
+- decline/requeue and no-accept timeout regression coverage
+- media/TURN reliability verification beyond the current manual harness
 
 ## 4. Deferred backlog
 
@@ -232,10 +292,10 @@
 
 ## 5. Next priority
 
-- Implement basic in-call text chat inside `/call/[sessionId]`
+- Implement basic in-call text chat inside `/call/[sessionId]` once the expanded regression suite is green in the target local runtime
 
 ## 6. Last update
 
-- date: 2026-03-13
-- task name: Terminal hangup messages should auto-dismiss after a short delay
-- verification completed: `pnpm.cmd --dir apps/web typecheck`
+- date: 2026-03-14
+- task name: Simultaneous routing, session-end cleanup, stale-call handling, and core E2E regression expansion
+- verification completed: `pnpm.cmd --dir apps/api typecheck`, `pnpm.cmd --dir apps/web typecheck`

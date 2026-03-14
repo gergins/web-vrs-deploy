@@ -1,0 +1,390 @@
+1. **Repo structure explanation**
+
+Top-level directories and files:
+
+- `.agents`
+  - Contains Codex skill definitions under `.agents/skills/*`.
+  - Subsystem: agent workflow/support.
+  - Status: fairly complete for process guidance.
+
+- `apps`
+  - Contains deployable applications.
+  - Subsystem: runtime implementation.
+  - Status: core apps exist and are functional for prototype scope.
+
+- `packages`
+  - Shared packages: `contracts`, `shared`, `domain`, `ui`, `webrtc`.
+  - Subsystem: shared code/contracts.
+  - Status: mixed. `contracts` is strong; others are partial or placeholder.
+
+- `infra`
+  - Dockerfiles, nginx, TURN config, scripts, and a `k8s` folder.
+  - Subsystem: local/deployment infrastructure.
+  - Status: local/dev infra is present; production readiness is partial.
+
+- `docs`
+  - Architecture, flows, contracts, operations, specifications, verification, product notes.
+  - Subsystem: authoritative repo truth.
+  - Status: strong overall, but some areas remain partial/stub-like.
+
+- `skills`
+  - Human-readable debug/support notes.
+  - Subsystem: support/process.
+  - Status: support-only, not runtime.
+
+- `tests`
+  - `e2e`, `unit`, `integration`, `fixtures`.
+  - Subsystem: verification.
+  - Status: E2E has real tests; unit/integration are currently empty.
+
+- `codex-vrs-engineering-templates`
+  - Present as a top-level directory.
+  - Subsystem: support/process/templates.
+  - Status: exists, but not a core runtime area.
+
+- Other top-level items
+  - `AGENTS.md`: repo rules and truth hierarchy.
+  - `project-manifest.json`: high-level product scope and protected semantics.
+  - `docker-compose.yml`: local stack orchestration.
+  - `.env`, `.env.example`: runtime and template env files.
+  - `node_modules`, `.git`: normal workspace directories.
+  - `.tmp-edge-cdp`, `*.log`, `repo*.txt/zip`: local artifacts/support noise, not authoritative.
+
+**Applications under `apps/`**
+
+- `apps/web`
+  - Purpose: browser client.
+  - Framework: Next.js 15 + React 19.
+  - Main entry points:
+    - `apps/web/src/app/page.tsx`
+    - `apps/web/src/app/queue/page.tsx`
+    - `apps/web/src/app/interpreter/page.tsx`
+    - `apps/web/src/app/call/[sessionId]/page.tsx`
+  - Major modules:
+    - `src/api/client.ts`
+    - `src/signaling/*`
+    - `src/webrtc/*`
+    - `src/components/call/*`
+    - `src/state/*`
+  - Current functionality:
+    - role-based local auth
+    - signer queue flow
+    - interpreter workspace
+    - offer accept/decline
+    - call page with signaling and WebRTC
+    - TURN test page
+    - admin page is scaffold-only
+
+- `apps/api`
+  - Purpose: REST API + WebSocket signaling backend.
+  - Framework: Express 5 + `ws` + Prisma + Redis client.
+  - Main entry points:
+    - `apps/api/src/server.ts`
+    - `apps/api/src/app.ts`
+  - Major modules:
+    - `src/routes/*`
+    - `src/services/*`
+    - `src/signaling/*`
+    - `src/repositories/*`
+    - `src/realtime/*`
+    - `src/db/prisma/schema.prisma`
+  - Current functionality:
+    - local auth
+    - queue/call creation
+    - interpreter routing
+    - simultaneous and sequential offer modes
+    - assignment accept/decline
+    - session creation
+    - active-offer / active-session lookup
+    - signaling relay
+    - TURN credential API
+
+2. **Implemented components**
+
+Backend services found:
+
+- Session service
+  - Location: `apps/api/src/services/session-service.ts`
+  - Status: implemented
+  - Responsibilities:
+    - create session records
+    - authorize join
+    - active-session lookup
+    - mark sessions completed
+
+- Queue service
+  - Location: `apps/api/src/services/queue-service.ts`
+  - Status: implemented
+  - Responsibilities:
+    - create queued calls
+    - queue state transitions
+
+- Signaling service layer
+  - Location: `apps/api/src/signaling/*`
+  - Status: implemented
+  - Responsibilities:
+    - websocket auth
+    - connection/session registries
+    - message validation/routing
+    - SDP/ICE forwarding
+    - reconnect-grace handling
+
+- Interpreter service
+  - Location: `apps/api/src/services/interpreter-service.ts`
+  - Status: implemented
+  - Responsibilities:
+    - interpreter lookup
+    - availability-based selection support
+
+- Auth service
+  - Location: `apps/api/src/services/auth-service.ts`
+  - Status: implemented, prototype-only
+  - Responsibilities:
+    - authenticate seeded local users
+
+- Assignment service
+  - Location: `apps/api/src/services/assignment-service.ts`
+  - Status: implemented
+  - Responsibilities:
+    - sequential/simultaneous offer routing
+    - offer persistence
+    - accept/decline handling
+    - loser cancellation
+    - session creation trigger
+
+- Presence service
+  - Location: `apps/api/src/services/presence-service.ts`
+  - Status: implemented
+  - Responsibilities:
+    - emit to user
+    - presence checks
+
+- TURN credential service
+  - Location: `apps/api/src/services/turn-credential-service.ts`
+  - Status: implemented
+  - Responsibilities:
+    - generate TURN credentials
+
+- Authority service
+  - Location: not found as a named service
+  - Status: missing
+  - Notes:
+    - authorization logic exists in auth/session join paths, but no `AuthorityService`
+
+- Reporting service
+  - Location: not found as a named service
+  - Status: missing
+  - Notes:
+    - `AGENTS.md` mentions reporting as an authoritative backend domain, but no reporting service/module was found
+
+Media and communication layer:
+
+- WebRTC
+  - Implemented
+  - Locations:
+    - `apps/web/src/webrtc/*`
+    - `apps/web/src/app/call/[sessionId]/page.tsx`
+
+- WebSocket signaling
+  - Implemented
+  - Locations:
+    - `apps/api/src/signaling/*`
+    - `apps/web/src/signaling/*`
+
+- STUN/TURN
+  - Implemented
+  - Locations:
+    - `apps/api/src/routes/turn-routes.ts`
+    - `apps/api/src/services/turn-credential-service.ts`
+    - `infra/turn/turnserver.conf`
+
+- mediasoup
+  - Not implemented
+  - No mediasoup runtime found
+
+- OpenSIPS
+  - Not implemented
+  - No OpenSIPS config or service found
+
+- SIP integration
+  - Not implemented
+  - No SIP stack or PSTN bridge found
+
+Authentication:
+
+- Login system
+  - Implemented for local seeded auth
+  - Locations:
+    - `apps/api/src/routes/auth-routes.ts`
+    - `apps/api/src/services/auth-service.ts`
+    - `apps/web/src/state/auth-store.ts`
+
+- Token authentication
+  - Partial
+  - `JWT_SECRET` exists in env, but the current user-facing auth path is local seeded auth, not a full token-based production system
+
+- OAuth / OpenID
+  - Not implemented
+
+- Keycloak integration
+  - Not implemented
+
+- Session tokens
+  - Partial/unclear
+  - env mentions session/JWT secrets, but current browser flow is local auth + stored identity + websocket auth
+
+Database layer:
+
+- Database technology
+  - PostgreSQL
+
+- ORM
+  - Prisma
+
+- Schema
+  - `apps/api/src/db/prisma/schema.prisma`
+
+- Migration system
+  - Prisma commands exist
+  - local workflow uses `db push` heavily
+  - no substantive migration history was identified earlier
+
+- Implemented models
+  - `User`
+  - `Interpreter`
+  - `CallRequest`
+  - `SessionRecord`
+  - `AssignmentAttempt`
+  - `AuditLog`
+
+Infrastructure:
+
+- Docker setup
+  - Implemented for local/dev
+  - `docker-compose.yml`
+  - `infra/docker/*`
+
+- TURN server
+  - Implemented
+  - `infra/turn/turnserver.conf`
+
+- Database services
+  - PostgreSQL in compose
+
+- Redis
+  - Implemented in compose and backend code
+
+- nginx
+  - Implemented in `infra/nginx/nginx.conf`
+
+- mediasoup deployment
+  - Not implemented
+
+- OpenSIPS configuration
+  - Not implemented
+
+Readiness summary by area:
+
+- session lifecycle
+  - implemented, but still prototype-fragile in disconnect/recovery areas
+
+- queue logic
+  - implemented
+
+- interpreter routing
+  - implemented, including simultaneous mode
+
+- media infrastructure
+  - browser WebRTC + TURN implemented
+  - no server media layer
+
+- telephony integration
+  - not implemented
+
+3. **Missing components**
+
+Not implemented or clearly missing:
+
+- SIP / PSTN bridge
+- OpenSIPS
+- mediasoup or any SFU/media server
+- OAuth / OpenID / Keycloak
+- production-grade auth/identity model
+- reporting service
+- authority service as an explicit module
+- real admin/operations dashboard
+- robust audit pipeline implementation
+- robust metrics/observability service implementation
+- worker-based timeout/reaper system in runtime
+- unit and integration test suites
+- production-ready telephony/media gateway behavior
+
+Partial or placeholder areas:
+
+- `apps/api/src/services/audit-service.ts`
+  - deferred placeholder
+
+- `apps/api/src/services/metrics-service.ts`
+  - deferred placeholder
+
+- `apps/api/src/workers/*`
+  - deferred placeholders, not wired
+
+- `apps/web/src/app/admin/page.tsx`
+  - scaffold-only
+
+- `packages/ui`
+  - reserved placeholder
+
+- `packages/domain`
+  - unclear/unused
+
+- `packages/webrtc`
+  - present, but ownership is still secondary compared with `apps/web/src/webrtc`
+
+- `tests/unit`, `tests/integration`, `tests/fixtures`
+  - present as folders, effectively empty
+
+4. **Recommended next steps**
+
+Top 10 practical missing components for a stronger functional Web VRS system:
+
+1. Add stable disconnect/reconnect regression coverage.
+2. Implement worker-backed timeout/reaper behavior or explicitly remove that architecture from runtime expectations.
+3. Implement real audit logging through `AuditLog`.
+4. Implement real metrics/observability, even if minimal.
+5. Complete disconnect/reconnect lifecycle hardening across all terminal paths.
+6. Clarify and consolidate WebRTC ownership between `apps/web/src/webrtc` and `packages/webrtc`.
+7. Add unit and integration tests for queue/session/signaling services.
+8. Build a minimal real admin/operations view or clearly defer it from product scope.
+9. Add a proper reporting service if reporting remains a declared backend domain.
+10. If the target remains true VRS beyond browser-only prototype, begin telephony/SIP bridge planning and infrastructure, because that is currently absent.
+
+Overall summary:
+
+- **Currently implemented**
+  - local signer/interpreter flow
+  - queue and assignment lifecycle
+  - sequential and simultaneous interpreter offer routing
+  - websocket signaling
+  - session creation and join
+  - browser WebRTC media
+  - TURN-backed local media connectivity
+  - local Docker infra
+
+- **Partially implemented**
+  - auth
+  - session-end and reconnect hardening
+  - observability
+  - audit
+  - admin tooling
+  - shared package boundaries
+  - regression coverage
+
+- **Not implemented**
+  - SIP/PSTN
+  - OpenSIPS
+  - mediasoup/SFU
+  - OAuth/OIDC/Keycloak
+  - production-grade reporting
+  - production-grade operations stack
